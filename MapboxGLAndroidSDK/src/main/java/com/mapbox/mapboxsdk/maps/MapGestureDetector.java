@@ -7,8 +7,10 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.PointF;
 import android.os.Handler;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.animation.DecelerateInterpolator;
@@ -312,7 +314,11 @@ final class MapGestureDetector {
           float scrollDist = event.getAxisValue(MotionEvent.AXIS_VSCROLL);
 
           // Scale the map by the appropriate power of two factor
-          transform.zoomBy(scrollDist, new PointF(event.getX(), event.getY()));
+          float horizontalScroll = event.getX();
+          if (!uiSettings.isHorizontalScrollGesturesEnabled()) {
+            horizontalScroll = 0;
+          }
+          transform.zoomBy(scrollDist, new PointF(horizontalScroll, event.getY()));
 
           return true;
 
@@ -435,6 +441,14 @@ final class MapGestureDetector {
       // calculate animation time based on displacement
       long animationTime = (long) (velocityXY / 7 / tiltFactor + MapboxConstants.ANIMATION_DURATION_FLING_BASE);
 
+      if (!uiSettings.isHorizontalScrollGesturesEnabled()) {
+        offsetX = 0.0;
+        if (offsetY < MapboxConstants.Y_TRANSLATION_THRESHOLD_IGNORE_FLING) {
+          // ignore short flings in Y direction when horizontal scroll gestures are disabled
+          return false;
+        }
+      }
+
       // update transformation
       transform.moveBy(offsetX, offsetY, animationTime);
 
@@ -475,6 +489,11 @@ final class MapGestureDetector {
       if (distanceX != 0 || distanceY != 0) {
         // dispatching camera start event only when the movement actually occurred
         cameraChangeDispatcher.onCameraMoveStarted(CameraChangeDispatcher.REASON_API_GESTURE);
+
+        // Disable scrolling horizontal if not allowed
+        if (!uiSettings.isHorizontalScrollGesturesEnabled()) {
+          distanceX = 0;
+        }
 
         // Scroll the map
         transform.moveBy(-distanceX, -distanceY, 0 /*no duration*/);
